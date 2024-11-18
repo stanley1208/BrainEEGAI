@@ -210,7 +210,6 @@ def strongest_band_in_periods(data, sf, bands, window_sec):
 
     for start in range(0, len(data) - nperseg + 1, step):
         segment = data[start:start + nperseg]
-        print(segment)
         band_powers = {band: bandpower(segment, sf, freq_range) for band, freq_range in bands.items()}
         strongest_band = max(band_powers, key=band_powers.get)
         results.append((start / sf, (start + nperseg) / sf, strongest_band))
