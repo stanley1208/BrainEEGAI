@@ -184,6 +184,41 @@ def plot_spectrum_methods(data, sf, window_sec, band=None, dB=False):
     plt.show()
 
 
+def strongest_band_in_periods(data, sf, bands, window_sec):
+    """
+    Find the strongest frequency band for each time period.
+
+    Parameters
+    ----------
+    data : 1d-array
+        EEG signal data.
+    sf : float
+        Sampling frequency.
+    bands : dict
+        Frequency bands (e.g., {"Delta": [0.5, 4], "Theta": [4, 8]}).
+    window_sec : float
+        Length of each window in seconds.
+
+    Returns
+    -------
+    results : list
+        List of strongest bands for each segment.
+    """
+    nperseg = int(window_sec * sf)
+    step = nperseg
+    results = []
+
+    for start in range(0, len(data) - nperseg + 1, step):
+        segment = data[start:start + nperseg]
+        print(segment)
+        band_powers = {band: bandpower(segment, sf, freq_range) for band, freq_range in bands.items()}
+        strongest_band = max(band_powers, key=band_powers.get)
+        results.append((start / sf, (start + nperseg) / sf, strongest_band))
+
+    return results
+
+
+
 
 # Path of the uploaded file in this environment
 file_path='C:/Users/user/Desktop/WenEEG.xlsx'
@@ -297,6 +332,28 @@ print('delta/beta ratio(relative): %.3f'%db_rel)
 
 # Example: plot the 0.5 - 2 Hz band
 plot_spectrum_methods(df['EXG Channel 0'], sf, 4, [0.5, 2], dB=True)
+
+
+
+
+
+# Define frequency bands
+bands = {
+    "Delta": [0.5, 4],
+    "Theta": [4, 8],
+    "Alpha": [8, 12],
+    "Beta": [12, 30],
+}
+
+# Parameters
+window_sec = 4  # 4-second windows
+
+# Find the strongest band in each time period
+results = strongest_band_in_periods(df['EXG Channel 0'], sf, bands, window_sec)
+
+# Print results
+for start, end, band in results:
+    print(f"Time: {start:.2f}-{end:.2f}s | Strongest Band: {band}")
 
 
 
