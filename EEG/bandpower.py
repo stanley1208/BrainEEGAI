@@ -205,14 +205,13 @@ def strongest_band_in_periods(data, sf, bands, window_sec):
         List of strongest bands for each segment.
     """
     nperseg = int(window_sec * sf)
-    step = nperseg
     results = []
 
-    for start in range(0, len(data) - nperseg + 1, step):
+    for start in range(0, len(data) - nperseg + 1, nperseg):
         segment = data[start:start + nperseg]
         band_powers = {band: bandpower(segment, sf, freq_range) for band, freq_range in bands.items()}
         strongest_band = max(band_powers, key=band_powers.get)
-        results.append((start / sf, (start + nperseg) / sf, strongest_band))
+        results.append((start / sf, (start + nperseg) / sf, strongest_band,band_powers))
 
     return results
 
@@ -351,8 +350,26 @@ window_sec = 4  # 4-second windows
 results = strongest_band_in_periods(df['EXG Channel 0'], sf, bands, window_sec)
 
 # Print results
-for start, end, band in results:
+for start, end, band, band_powers in results:
     print(f"Time: {start:.2f}-{end:.2f}s | Strongest Band: {band}")
+    for band, power in band_powers.items():
+        print(f"{band}: {power:.3f} uV^2")
+
+
+
+# Prepare data for visualization
+times=[start for start, _, _, _ in results]
+for band in bands.keys():
+    powers=[band_powers[band] for _, _, _, band_powers in results]
+    plt.plot(times,powers,label=f"{band} power")
+
+
+plt.xlabel("Time (s)")
+plt.ylabel("Power (uV^2)")
+plt.title("band power over time")
+plt.legend(loc="best")
+plt.show()
+
 
 
 
