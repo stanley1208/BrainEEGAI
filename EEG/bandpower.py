@@ -184,9 +184,9 @@ def plot_spectrum_methods(data, sf, window_sec, band=None, dB=False):
     plt.show()
 
 
-def strongest_band_in_periods(data, sf, bands, window_sec):
+def bandpower_in_periods(data, sf, bands, window_sec, relative=False):
     """
-    Find the strongest frequency band for each time period.
+    Compute bandpower for each band in each time period.
 
     Parameters
     ----------
@@ -198,20 +198,22 @@ def strongest_band_in_periods(data, sf, bands, window_sec):
         Frequency bands (e.g., {"Delta": [0.5, 4], "Theta": [4, 8]}).
     window_sec : float
         Length of each window in seconds.
+    relative : bool, optional
+        If True, compute relative band power. Default is False.
 
     Returns
     -------
     results : list
-        List of strongest bands for each segment.
+        List of tuples with (start time, end time, band powers).
     """
     nperseg = int(window_sec * sf)
     results = []
 
-    for start in range(0, len(data) - nperseg + 1, nperseg):
+    max_samples = min(len(data), int(200 * sf))  # Limit data to 200 seconds
+    for start in range(0, max_samples - nperseg + 1, nperseg):
         segment = data[start:start + nperseg]
-        band_powers = {band: bandpower(segment, sf, freq_range) for band, freq_range in bands.items()}
-        strongest_band = max(band_powers, key=band_powers.get)
-        results.append((start / sf, (start + nperseg) / sf, strongest_band,band_powers))
+        band_powers = {band: bandpower(segment, sf, freq_range, relative=relative) for band, freq_range in bands.items()}
+        results.append((start / sf, (start + nperseg) / sf, band_powers))
 
     return results
 
@@ -243,8 +245,8 @@ time = np.arange(len(df)) / sf  # Create a time vector based on the number of sa
 # plt.show()
 
 
-# Define window length (4 seconds)
-win=4*sf
+# Define window length (2 seconds)
+win=2*sf
 freqs,psd=signal.welch(df['EXG Channel 0'],sf,nperseg=win)
 #
 # # Plot the power spectrum
@@ -294,8 +296,8 @@ delta_rel_power=delta_power/total_power
 print('Relative delta power: %.3f'%delta_rel_power)
 
 
-# Define the duration of the window to be 4 seconds
-win_sec=4
+# Define the duration of the window to be 2 seconds
+win_sec=2
 
 
 # # # Delta/beta ratio based on the absolute power
@@ -344,29 +346,28 @@ bands = {
 }
 
 # Parameters
-window_sec = 4  # 4-second windows
+window_sec = 2  # 2-second windows
 
 # Find the strongest band in each time period
-results = strongest_band_in_periods(df['EXG Channel 0'], sf, bands, window_sec)
+results = bandpower_in_periods(df['EXG Channel 0'], sf, bands, window_sec,relative=True)
 
 # Print results
-for start, end, band, band_powers in results:
-    print(f"Time: {start:.2f}-{end:.2f}s | Strongest Band: {band}")
-    for band, power in band_powers.items():
-        print(f"{band}: {power:.3f} uV^2")
+for start, end, band_powers in results:
+    print(f"Time: {start:.2f}-{end:.2f}s | Alpha Relative Power: {band_powers['Alpha']:.3f} uV^2")
+
 
 
 
 # Prepare data for visualization
-times=[start for start, _, _, _ in results]
-for band in bands.keys():
-    powers=[band_powers[band] for _, _, _, band_powers in results]
-    plt.plot(times,powers,label=f"{band} power")
+times=[start for start, _, _ in results]
+
+alpha_powers=[band_powers['Alpha'] for  _, _, band_powers in results]
 
 
+plt.plot(times,alpha_powers,label="Alpha Relative Power")
 plt.xlabel("Time (s)")
-plt.ylabel("Power (uV^2)")
-plt.title("band power over time")
+plt.ylabel("Relative Power")
+plt.title("Alpha and relative power over time")
 plt.legend(loc="best")
 plt.show()
 
