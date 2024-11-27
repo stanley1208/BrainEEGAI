@@ -417,7 +417,17 @@ model=tf.keras.models.Sequential([
 model.compile(optimizer='adam',loss='mse')
 
 # Train the model
-model.fit(X_train, y_train, epochs=20, validation_data=(X_test, y_test))
+history=model.fit(X_train, y_train, epochs=20, validation_data=(X_test, y_test))
+
+
+# Plot the training and validation loss values
+plt.plot(history.history['loss'],label='Training loss')
+plt.plot(history.history['val_loss'],label='Validation loss')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.title('Training and Validation Loss Over Epochs')
+plt.legend()
+plt.show()
 
 # Evaluate the model on the test data
 test_loss=model.evaluate(X_test, y_test)
