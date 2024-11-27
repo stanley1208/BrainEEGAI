@@ -2,8 +2,12 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import tensorflow as tf
+from sklearn.model_selection import train_test_split
 from scipy import signal
 from scipy.integrate import simps
+
+
 
 
 # def bandpower(data, sf, band, window_sec=None, relative=False):
@@ -370,6 +374,55 @@ plt.ylabel("Relative Power")
 plt.title("Alpha and relative power over time")
 plt.legend(loc="best")
 plt.show()
+
+# Prepare the Alpha Relative Power data as a numpy array
+alpha_powers=np.array(alpha_powers)
+
+
+window_size=20
+
+X=[]
+y=[]
+
+
+# Use a sliding window to create input-output pairs
+for i in range(len(alpha_powers)-window_size):
+    X.append(alpha_powers[i:i+window_size])
+    y.append(alpha_powers[i+window_size])
+
+
+X=np.array(X)
+y=np.array(y)
+
+
+# Reshape X for CNN (samples, time_steps, features)
+X=X.reshape(X.shape[0],X.shape[1],1)
+
+
+# Split data into training and testing sets (80% train, 20% test)
+split_idx=int(0.8*len(X))
+X_train, X_test = X[:split_idx], X[split_idx:]
+y_train, y_test = y[:split_idx], y[split_idx:]
+
+# Create a simple CNN model
+model=tf.keras.models.Sequential([
+    tf.keras.layers.Conv1D(16, kernel_size=3, activation='relu',input_shape=(window_size,1)),
+    tf.keras.layers.MaxPool1D(2),
+    tf.keras.layers.Flatten(),
+    tf.keras.layers.Dense(16, activation='relu'),
+    tf.keras.layers.Dense(1)    # Predicting a single value
+])
+
+# Compile the model
+model.compile(optimizer='adam',loss='mse')
+
+# Train the model
+model.fit(X_train, y_train, epochs=20, validation_data=(X_test, y_test))
+
+# Evaluate the model on the test data
+test_loss=model.evaluate(X_test, y_test)
+print("Test loss:", test_loss)
+
 
 
 
