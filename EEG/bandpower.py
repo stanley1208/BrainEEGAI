@@ -5,8 +5,9 @@ import seaborn as sns
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
 from scipy import signal
+from scipy.signal import welch
 from scipy.integrate import simps
-
+from scipy.signal import welch  # Import welch from scipy.signal
 
 
 
@@ -428,15 +429,5 @@ plt.ylabel('Loss')
 plt.title('Training and Validation Loss Over Epochs')
 plt.legend()
 plt.show()
-
-# Evaluate the model on the test data
-test_loss=model.evaluate(X_test, y_test)
-print("Test loss:", test_loss)
-
-
-
-
-
-
 
 
