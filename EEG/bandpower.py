@@ -3,11 +3,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import tensorflow as tf
-from sklearn.model_selection import train_test_split
 from scipy import signal
-from scipy.signal import welch
 from scipy.integrate import simps
-from scipy.signal import welch  # Import welch from scipy.signal
+from scipy.signal import spectrogram
 
 
 
@@ -62,10 +60,9 @@ from scipy.signal import welch  # Import welch from scipy.signal
 #     return bp
 
 
+# Define the bandpower function to compute the average power of the signal in a specific frequency band
 def bandpower(data, sf, band, method='welch', window_sec=None, relative=False):
     """Compute the average power of the signal x in a specific frequency band.
-
-    Requires MNE-Python >= 0.14.
 
     Parameters
     ----------
@@ -79,7 +76,6 @@ def bandpower(data, sf, band, method='welch', window_sec=None, relative=False):
       Periodogram method: 'welch' or 'multitaper'
     window_sec : float
       Length of each window in seconds. Useful only if method == 'welch'.
-      If None, window_sec = (1 / min(band)) * 2.
     relative : boolean
       If True, return the relative power (= divided by the total power of the signal).
       If False (default), return the absolute power.
@@ -91,23 +87,17 @@ def bandpower(data, sf, band, method='welch', window_sec=None, relative=False):
     """
     from scipy.signal import welch
     from scipy.integrate import simps
-    from mne.time_frequency import psd_array_multitaper
 
     band = np.asarray(band)
     low, high = band
 
     # Compute the modified periodogram (Welch)
-    if method == 'welch':
-        if window_sec is not None:
-            nperseg = window_sec * sf
-        else:
-            nperseg = (2 / low) * sf
+    if window_sec is not None:
+        nperseg = int(window_sec * sf)
+    else:
+        nperseg = int((2 / low) * sf)
 
-        freqs, psd = welch(data, sf, nperseg=nperseg)
-
-    elif method == 'multitaper':
-        psd, freqs = psd_array_multitaper(data, sf, adaptive=True,
-                                          normalization='full', verbose=0)
+    freqs, psd = welch(data, sf, nperseg=nperseg)
 
     # Frequency resolution
     freq_res = freqs[1] - freqs[0]
@@ -115,7 +105,7 @@ def bandpower(data, sf, band, method='welch', window_sec=None, relative=False):
     # Find index of band in frequency vector
     idx_band = np.logical_and(freqs >= low, freqs <= high)
 
-    # Integral approximation of the spectrum using parabola (Simpson's rule)
+    # Integral approximation of the spectrum using Simpson's rule
     bp = simps(psd[idx_band], dx=freq_res)
 
     if relative:
@@ -191,7 +181,7 @@ def plot_spectrum_methods(data, sf, window_sec, band=None, dB=False):
 
 def bandpower_in_periods(data, sf, bands, window_sec, relative=False):
     """
-    Compute bandpower for each band in each time period.
+    Compute bandpower for each band in each time period using spectrogram.
 
     Parameters
     ----------
@@ -211,14 +201,23 @@ def bandpower_in_periods(data, sf, bands, window_sec, relative=False):
     results : list
         List of tuples with (start time, end time, band powers).
     """
-    nperseg = int(window_sec * sf)
-    results = []
+    f, t, Sxx = spectrogram(data, sf, nperseg=int(window_sec * sf))
 
-    max_samples = min(len(data), int(200 * sf))  # Limit data to 200 seconds
-    for start in range(0, max_samples - nperseg + 1, nperseg):
-        segment = data[start:start + nperseg]
-        band_powers = {band: bandpower(segment, sf, freq_range, relative=relative) for band, freq_range in bands.items()}
-        results.append((start / sf, (start + nperseg) / sf, band_powers))
+    results = []
+    for i in range(len(t)):
+        segment_band_powers = {}
+        total_power = 0
+        for band, (low, high) in bands.items():
+            idx_band = (f >= low) & (f <= high)
+            band_power = np.trapz(Sxx[idx_band, i], f[idx_band])
+            segment_band_powers[band] = band_power
+            total_power += band_power
+
+        if relative:
+            for band in bands:
+                segment_band_powers[band] /= total_power
+
+        results.append((t[i], t[i] + window_sec, segment_band_powers))
 
     return results
 
@@ -236,7 +235,7 @@ sns.set(font_scale=1.2)
 
 df['EXG Channel 0'] = pd.to_numeric(df['EXG Channel 0'], errors='coerce')
 # Define sampling frequency and time vector
-sf = 100.  # Sampling frequency in Hz
+sf = 200.  # Sampling frequency in Hz
 time = np.arange(len(df)) / sf  # Create a time vector based on the number of samples
 
 # Plot the "EXG Channel 0" signal
@@ -251,7 +250,7 @@ time = np.arange(len(df)) / sf  # Create a time vector based on the number of sa
 
 
 # Define window length (2 seconds)
-win=2*sf
+win=sf
 freqs,psd=signal.welch(df['EXG Channel 0'],sf,nperseg=win)
 #
 # # Plot the power spectrum
@@ -302,7 +301,7 @@ print('Relative delta power: %.3f'%delta_rel_power)
 
 
 # Define the duration of the window to be 2 seconds
-win_sec=2
+# win_sec=1
 
 
 # # # Delta/beta ratio based on the absolute power
@@ -351,7 +350,7 @@ bands = {
 }
 
 # Parameters
-window_sec = 2  # 2-second windows
+window_sec = 1 # 1-second windows
 
 # Find the strongest band in each time period
 results = bandpower_in_periods(df['EXG Channel 0'], sf, bands, window_sec,relative=True)
